@@ -1,68 +1,77 @@
-import * as XLSX from 'xlsx'
+import ExcelJS from 'exceljs'
 
-export function exportToExcel(product) {
-  const wb = XLSX.utils.book_new()
+function addSheetWithRows(workbook, sheetName, rows) {
+  const sheet = workbook.addWorksheet(sheetName)
+  rows.forEach((row) => sheet.addRow(row))
+  // Bold the header row
+  if (rows.length > 0) {
+    sheet.getRow(1).font = { bold: true }
+  }
+}
+
+export async function exportToExcel(product) {
+  const wb = new ExcelJS.Workbook()
 
   // Summary sheet
-  const summary = [
+  addSheetWithRows(wb, 'Summary', [
     ['Field', 'Value'],
     ['Title', product.title || ''],
-    ['Price', product.price != null ? (typeof product.price === 'object' ? JSON.stringify(product.price) : product.price) : ''],
-    ['Rating', product.rating || ''],
-    ['Orders', product.orders || ''],
-    ['Stock', product.stock || ''],
+    ['Price', product.price != null ? (typeof product.price === 'object' ? JSON.stringify(product.price) : String(product.price)) : ''],
+    ['Rating', product.rating != null ? String(product.rating) : ''],
+    ['Orders', product.orders != null ? String(product.orders) : ''],
+    ['Stock', product.stock != null ? String(product.stock) : ''],
     ['Store Name', product.store?.name || ''],
     ['Store URL', product.store?.url || ''],
-    ['Store Rating', product.store?.rating || ''],
-    ['Store Followers', product.store?.followers || ''],
-  ]
-  const summarySheet = XLSX.utils.aoa_to_sheet(summary)
-  XLSX.utils.book_append_sheet(wb, summarySheet, 'Summary')
+    ['Store Rating', product.store?.rating != null ? String(product.store.rating) : ''],
+    ['Store Followers', product.store?.followers != null ? String(product.store.followers) : ''],
+  ])
 
   // Images sheet
-  const images = [['#', 'Image URL']]
+  const imageRows = [['#', 'Image URL']]
   ;(product.images || []).forEach((img, i) => {
     const url = typeof img === 'string' ? img : (img.url || img.src || '')
-    images.push([i + 1, url])
+    imageRows.push([i + 1, url])
   })
-  const imagesSheet = XLSX.utils.aoa_to_sheet(images)
-  XLSX.utils.book_append_sheet(wb, imagesSheet, 'Images')
+  addSheetWithRows(wb, 'Images', imageRows)
 
   // Specifications sheet
-  const specs = [['Key', 'Value']]
+  const specRows = [['Key', 'Value']]
   ;(product.specifications || []).forEach((spec) => {
     const key = spec.key || spec.name || spec.attrName || Object.keys(spec)[0] || ''
     const value = spec.value || spec.attrValue || Object.values(spec)[1] || ''
-    specs.push([key, Array.isArray(value) ? value.join(', ') : String(value)])
+    specRows.push([key, Array.isArray(value) ? value.join(', ') : String(value)])
   })
-  const specsSheet = XLSX.utils.aoa_to_sheet(specs)
-  XLSX.utils.book_append_sheet(wb, specsSheet, 'Specifications')
+  addSheetWithRows(wb, 'Specifications', specRows)
 
   // Reviews sheet
-  const reviews = [['Author', 'Rating', 'Date', 'Content']]
+  const reviewRows = [['Author', 'Rating', 'Date', 'Content']]
   ;(product.reviews || []).forEach((r) => {
-    reviews.push([
+    reviewRows.push([
       r.author || r.buyerName || r.userName || '',
       r.rating || r.reviewStarRating || '',
       r.date || r.reviewTime || '',
       r.content || r.reviewContent || r.comment || '',
     ])
   })
-  const reviewsSheet = XLSX.utils.aoa_to_sheet(reviews)
-  XLSX.utils.book_append_sheet(wb, reviewsSheet, 'Reviews')
+  addSheetWithRows(wb, 'Reviews', reviewRows)
 
   // Shipping sheet
-  const shipping = [['Method', 'Price', 'Estimated Delivery']]
+  const shippingRows = [['Method', 'Price', 'Estimated Delivery']]
   ;(product.shipping || []).forEach((s) => {
-    shipping.push([
+    shippingRows.push([
       s.method || s.company || s.serviceName || s.name || '',
       s.price || s.shippingPrice || s.amount || '',
       s.time || s.estimatedDelivery || s.deliveryTime || '',
     ])
   })
-  const shippingSheet = XLSX.utils.aoa_to_sheet(shipping)
-  XLSX.utils.book_append_sheet(wb, shippingSheet, 'Shipping')
+  addSheetWithRows(wb, 'Shipping', shippingRows)
 
-  const filename = `aliexpress-product-${Date.now()}.xlsx`
-  XLSX.writeFile(wb, filename)
+  const buffer = await wb.xlsx.writeBuffer()
+  const blob = new Blob([buffer], { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' })
+  const url = URL.createObjectURL(blob)
+  const a = document.createElement('a')
+  a.href = url
+  a.download = `aliexpress-product-${Date.now()}.xlsx`
+  a.click()
+  URL.revokeObjectURL(url)
 }

@@ -1,8 +1,8 @@
 import { exportToExcel } from '../utils/exportExcel'
 
 function ExportButtons({ product }) {
-  const handleExcelExport = () => {
-    exportToExcel(product)
+  const handleExcelExport = async () => {
+    await exportToExcel(product)
   }
 
   const handleCopyJSON = () => {
