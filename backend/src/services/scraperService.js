@@ -1,4 +1,5 @@
 import scrapeAliexpressProduct from 'aliexpress-product-scraper';
+import { scrapeProductWithDestination } from './shippingDestination.service.js';
 
 function extractProductId(url) {
   if (!url || typeof url !== 'string') return null;
@@ -93,6 +94,9 @@ function transformProductData(raw) {
 
   return {
     title: raw.title || raw.name || '',
+    selectedCountry: raw.selectedCountry || null,
+    selectedCountryName: raw.selectedCountryName || null,
+    shippingWarning: raw.shippingWarning || null,
     categoryId: raw.categoryId ?? null,
     productId: raw.productId ?? null,
     totalAvailableQuantity,
@@ -127,14 +131,16 @@ function transformProductData(raw) {
   };
 }
 
-async function getProductData(url) {
+async function getProductData(url, shipToCountry = null) {
   const productId = extractProductId(url);
 
   if (!productId) {
     throw new Error('Could not extract product ID from URL. Please use a direct AliExpress product URL.');
   }
 
-  const raw = await scrapeAliexpressProduct(productId);
+  const raw = shipToCountry
+    ? await scrapeProductWithDestination(productId, shipToCountry)
+    : await scrapeAliexpressProduct(productId);
 
   if (!raw) {
     throw new Error('Product not found or could not be retrieved.');
