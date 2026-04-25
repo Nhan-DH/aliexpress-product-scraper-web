@@ -5,38 +5,29 @@ function Reviews({ reviews }) {
 
   const renderStars = (rating) => {
     if (!rating) return null
-    const num = Math.round(parseFloat(rating))
-    return '★'.repeat(num) + '☆'.repeat(Math.max(0, 5 - num))
+    const num = Math.max(0, Math.min(5, Math.round(parseFloat(rating))))
+    return '★'.repeat(num) + '☆'.repeat(5 - num)
   }
 
   return (
     <div className="card">
       <h2>Reviews ({reviews.length})</h2>
-      <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
+      <div className="review-list">
         {reviews.map((review, i) => {
-          const author = review.author || review.buyerName || review.userName || 'Anonymous'
+          const author = review.displayName || review.author || review.buyerName || review.userName || review.name || 'Anonymous'
           const rating = review.rating || review.reviewStarRating
           const content = review.content || review.reviewContent || review.comment || ''
           const date = review.date || review.reviewTime || ''
           return (
-            <div
-              key={i}
-              style={{
-                padding: '1rem',
-                background: '#f8f9fa',
-                borderRadius: '6px',
-                border: '1px solid #eee',
-              }}
-            >
-              <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '0.5rem' }}>
-                <strong style={{ color: '#333' }}>{author}</strong>
-                {date && <span style={{ fontSize: '0.8rem', color: '#999' }}>{date}</span>}
+            <article key={i} className="review-item">
+              <div className="review-header">
+                <strong>{author}</strong>
+                {date && <span>{date}</span>}
               </div>
-              {rating && (
-                <div style={{ color: '#f5a623', marginBottom: '0.5rem' }}>{renderStars(rating)}</div>
-              )}
-              {content && <p style={{ margin: 0, color: '#555', fontSize: '0.9rem' }}>{content}</p>}
-            </div>
+              {rating && <div className="stars">{renderStars(rating)}</div>}
+              {review.country && <div className="review-meta">{review.country}</div>}
+              {content && <p>{content}</p>}
+            </article>
           )
         })}
       </div>

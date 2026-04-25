@@ -1,48 +1,69 @@
 function Variants({ variants }) {
-  if (!variants || variants.length === 0) {
+  const options = Array.isArray(variants) ? variants : variants?.options || []
+  const prices = Array.isArray(variants?.prices) ? variants.prices : []
+
+  if (options.length === 0 && prices.length === 0) {
     return null
   }
 
   return (
     <div className="card">
       <h2>Variants</h2>
-      <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
-        {variants.map((variant, i) => {
-          const name = variant.name || variant.skuPropertyName || variant.property || `Variant ${i + 1}`
-          const values = variant.values || variant.skuPropertyValues || []
-          return (
-            <div key={i}>
-              <div style={{ fontWeight: '600', marginBottom: '0.4rem', color: '#555' }}>{name}</div>
-              <div style={{ display: 'flex', gap: '0.5rem', flexWrap: 'wrap' }}>
-                {Array.isArray(values) ? values.map((v, j) => {
-                  const label = typeof v === 'string' ? v : (v.name || v.propertyValueName || v.value || JSON.stringify(v))
-                  const imgSrc = v.image || v.imgUrl || null
-                  return (
-                    <div
-                      key={j}
-                      style={{
-                        padding: '0.35rem 0.75rem',
-                        border: '1px solid #ddd',
-                        borderRadius: '4px',
-                        fontSize: '0.85rem',
-                        background: '#fafafa',
-                        display: 'flex',
-                        alignItems: 'center',
-                        gap: '0.4rem',
-                      }}
-                    >
-                      {imgSrc && (
-                        <img src={imgSrc} alt={label} style={{ width: '20px', height: '20px', objectFit: 'cover', borderRadius: '2px' }} />
-                      )}
-                      {label}
-                    </div>
-                  )
-                }) : null}
-              </div>
-            </div>
-          )
-        })}
-      </div>
+      {options.length > 0 && (
+        <div className="variant-options">
+          {options.map((variant, i) => {
+            const name = variant.name || variant.skuPropertyName || variant.property || `Variant ${i + 1}`
+            const values = variant.values || variant.skuPropertyValues || []
+            return (
+              <section key={variant.id || i} className="variant-group">
+                <h3>{name}</h3>
+                <div className="variant-values">
+                  {Array.isArray(values) ? values.map((v, j) => {
+                    const label = typeof v === 'string'
+                      ? v
+                      : (v.displayName || v.name || v.propertyValueName || v.value || JSON.stringify(v))
+                    const imgSrc = v.image || v.imgUrl || null
+                    return (
+                      <div key={v.id || j} className="variant-chip">
+                        {imgSrc && <img src={imgSrc} alt={label} />}
+                        <span>{label}</span>
+                      </div>
+                    )
+                  }) : null}
+                </div>
+              </section>
+            )
+          })}
+        </div>
+      )}
+
+      {prices.length > 0 && (
+        <div className="sku-table-wrap">
+          <table className="data-table">
+            <thead>
+              <tr>
+                <th>SKU</th>
+                <th>Options</th>
+                <th>Available</th>
+                <th>Original</th>
+                <th>Sale</th>
+              </tr>
+            </thead>
+            <tbody>
+              {prices.slice(0, 12).map((item, index) => (
+                <tr key={item.skuId || index}>
+                  <td>{item.skuId}</td>
+                  <td>{item.optionValueIds}</td>
+                  <td>{item.availableQuantity}</td>
+                  <td>{item.originalPrice}</td>
+                  <td>{item.salePrice}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+          {prices.length > 12 && <p className="table-note">Showing 12 of {prices.length} SKU prices.</p>}
+        </div>
+      )}
     </div>
   )
 }

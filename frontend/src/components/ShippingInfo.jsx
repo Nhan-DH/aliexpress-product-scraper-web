@@ -6,32 +6,25 @@ function ShippingInfo({ shipping }) {
   return (
     <div className="card">
       <h2>Shipping Options</h2>
-      <div style={{ display: 'flex', flexDirection: 'column', gap: '0.75rem' }}>
+      <div className="shipping-list">
         {shipping.map((option, i) => {
-          const method = option.method || option.company || option.serviceName || option.name || `Option ${i + 1}`
-          const price = option.price || option.shippingPrice || option.amount
-          const time = option.time || option.estimatedDelivery || option.deliveryTime
+          const method = option.method || option.company || option.serviceName || option.name || option.deliveryProviderName || `Option ${i + 1}`
+          const price = option.price || option.shippingPrice || option.amount || option.shippingInfo?.fees
+          const time = option.time || option.estimatedDelivery || option.deliveryTime || option.deliveryInfo
+          const deliveryText = typeof time === 'object' && time
+            ? `${time.min ?? ''}${time.max && time.max !== time.min ? ` - ${time.max}` : ''} days`
+            : time
           return (
-            <div
-              key={i}
-              style={{
-                display: 'flex',
-                justifyContent: 'space-between',
-                alignItems: 'center',
-                padding: '0.75rem',
-                background: '#f8f9fa',
-                borderRadius: '6px',
-                border: '1px solid #eee',
-              }}
-            >
+            <div key={i} className="shipping-option">
               <div>
-                <div style={{ fontWeight: '600', color: '#333' }}>🚚 {method}</div>
-                {time && <div style={{ fontSize: '0.85rem', color: '#666', marginTop: '0.2rem' }}>{time}</div>}
+                <strong>{method}</strong>
+                {deliveryText && <span>{deliveryText}</span>}
+                {option.shippingInfo?.from && <span>From {option.shippingInfo.from}</span>}
               </div>
               {price != null && (
-                <div style={{ fontWeight: '700', color: price === 0 || price === '0' || price === 'Free' ? '#27ae60' : '#e8463a' }}>
-                  {price === 0 || price === '0' ? 'Free' : typeof price === 'number' ? `$${price.toFixed(2)}` : price}
-                </div>
+                <strong className={price === 0 || price === '0' || price === 'Free' ? 'free-price' : 'paid-price'}>
+                  {price === 0 || price === '0' ? 'Free' : typeof price === 'number' ? price.toFixed(2) : price}
+                </strong>
               )}
             </div>
           )

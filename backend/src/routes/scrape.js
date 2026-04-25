@@ -1,7 +1,8 @@
-const express = require('express');
+import express from 'express';
+import { scrapeProduct } from '../controllers/scrapeController.js';
+
 const router = express.Router();
-const { scrapeProduct } = require('../controllers/scrapeController');
 
 router.post('/scrape', scrapeProduct);
 
-module.exports = router;
+export default router;

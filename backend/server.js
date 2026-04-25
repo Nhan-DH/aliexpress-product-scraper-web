@@ -1,7 +1,7 @@
-require('dotenv').config();
-const express = require('express');
-const cors = require('cors');
-const scrapeRoutes = require('./src/routes/scrape');
+import 'dotenv/config';
+import express from 'express';
+import cors from 'cors';
+import scrapeRoutes from './src/routes/scrape.js';
 
 const app = express();
 const PORT = process.env.PORT || 5000;
@@ -19,4 +19,4 @@ app.listen(PORT, () => {
   console.log(`Server running on port ${PORT}`);
 });
 
-module.exports = app;
+export default app;

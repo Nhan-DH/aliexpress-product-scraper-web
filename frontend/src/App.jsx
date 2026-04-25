@@ -36,7 +36,7 @@ function App() {
       } else {
         setProduct(json.data)
       }
-    } catch (err) {
+    } catch {
       setError('Network error: Could not connect to the server. Make sure the backend is running.')
     } finally {
       setLoading(false)
@@ -46,7 +46,7 @@ function App() {
   return (
     <div className="app">
       <header className="app-header">
-        <h1>🛒 AliExpress Product Scraper</h1>
+        <h1>AliExpress Product Scraper</h1>
         <p>Enter an AliExpress product URL to fetch detailed product information</p>
       </header>
 
@@ -55,7 +55,7 @@ function App() {
 
         {error && (
           <div className="error-banner">
-            <span>⚠️ {error}</span>
+            <span>{error}</span>
           </div>
         )}
 
@@ -68,19 +68,17 @@ function App() {
 
         {product && (
           <div className="product-container">
-            <ExportButtons product={product} />
-            <div className="product-grid">
-              <div className="product-left">
-                <ProductImages images={product.images} title={product.title} />
-                <StoreInfo store={product.store} />
-              </div>
-              <div className="product-right">
-                <ProductOverview product={product} />
-                <Variants variants={product.variants} />
-                <ShippingInfo shipping={product.shipping} />
-              </div>
+            <div className="product-actions">
+              <ExportButtons product={product} />
             </div>
-            <Specifications specifications={product.specifications} />
+            <div className="product-grid">
+              <ProductImages images={product.images} title={product.title} />
+              <ProductOverview product={product} />
+              <StoreInfo store={product.storeInfo || product.store} />
+              <Variants variants={product.variants} />
+              <Specifications specifications={product.specs || product.specifications} />
+              <ShippingInfo shipping={product.shipping} />
+            </div>
             <Reviews reviews={product.reviews} />
           </div>
         )}

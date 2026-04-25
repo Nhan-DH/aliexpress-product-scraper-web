@@ -1,4 +1,4 @@
-const { getProductData } = require('../services/scraperService');
+import { getProductData } from '../services/scraperService.js';
 
 const ALIEXPRESS_URL_PATTERN = /aliexpress\.com/i;
 
@@ -22,4 +22,4 @@ async function scrapeProduct(req, res) {
   }
 }
 
-module.exports = { scrapeProduct };
+export { scrapeProduct };

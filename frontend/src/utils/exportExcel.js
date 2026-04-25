@@ -16,14 +16,17 @@ export async function exportToExcel(product) {
   addSheetWithRows(wb, 'Summary', [
     ['Field', 'Value'],
     ['Title', product.title || ''],
-    ['Price', product.price != null ? (typeof product.price === 'object' ? JSON.stringify(product.price) : String(product.price)) : ''],
-    ['Rating', product.rating != null ? String(product.rating) : ''],
+    ['Product ID', product.productId ?? ''],
+    ['Category ID', product.categoryId ?? ''],
+    ['Currency', product.currency || ''],
+    ['Sale Price', product.salePrice ? JSON.stringify(product.salePrice) : ''],
+    ['Original Price', product.originalPrice ? JSON.stringify(product.originalPrice) : ''],
+    ['Rating', product.ratings?.averageStar ?? product.rating ?? ''],
     ['Orders', product.orders != null ? String(product.orders) : ''],
-    ['Stock', product.stock != null ? String(product.stock) : ''],
-    ['Store Name', product.store?.name || ''],
-    ['Store URL', product.store?.url || ''],
-    ['Store Rating', product.store?.rating != null ? String(product.store.rating) : ''],
-    ['Store Followers', product.store?.followers != null ? String(product.store.followers) : ''],
+    ['Available Quantity', product.totalAvailableQuantity ?? product.stock ?? ''],
+    ['Store Name', product.storeInfo?.name || product.store?.name || ''],
+    ['Store Rating', product.storeInfo?.rating ?? product.store?.rating ?? ''],
+    ['Store Followers', product.storeInfo?.followers ?? product.store?.followers ?? ''],
   ])
 
   // Images sheet
@@ -36,12 +39,35 @@ export async function exportToExcel(product) {
 
   // Specifications sheet
   const specRows = [['Key', 'Value']]
-  ;(product.specifications || []).forEach((spec) => {
+  ;(product.specs || product.specifications || []).forEach((spec) => {
     const key = spec.key || spec.name || spec.attrName || Object.keys(spec)[0] || ''
     const value = spec.value || spec.attrValue || Object.values(spec)[1] || ''
     specRows.push([key, Array.isArray(value) ? value.join(', ') : String(value)])
   })
   addSheetWithRows(wb, 'Specifications', specRows)
+
+  const variantRows = [['Type', 'Name/SKU', 'Values/Options', 'Available', 'Original Price', 'Sale Price']]
+  ;(product.variants?.options || []).forEach((option) => {
+    variantRows.push([
+      'Option',
+      option.name || '',
+      (option.values || []).map((value) => value.displayName || value.name || value.value || '').join(', '),
+      '',
+      '',
+      '',
+    ])
+  })
+  ;(product.variants?.prices || []).forEach((sku) => {
+    variantRows.push([
+      'SKU',
+      sku.skuId || '',
+      sku.optionValueIds || '',
+      sku.availableQuantity ?? '',
+      sku.originalPrice ?? '',
+      sku.salePrice ?? '',
+    ])
+  })
+  addSheetWithRows(wb, 'Variants', variantRows)
 
   // Reviews sheet
   const reviewRows = [['Author', 'Rating', 'Date', 'Content']]
