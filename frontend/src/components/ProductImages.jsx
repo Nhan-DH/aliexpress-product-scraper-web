@@ -17,38 +17,22 @@ function ProductImages({ images, title }) {
   return (
     <div className="card">
       <h2>Images</h2>
-      <div style={{ marginBottom: '1rem' }}>
+      <div className="product-image-main">
         <img
           src={imgSrc(images[selectedIndex])}
           alt={title || 'Product'}
-          style={{
-            width: '100%',
-            maxHeight: '320px',
-            objectFit: 'contain',
-            borderRadius: '6px',
-            border: '1px solid #eee',
-            background: '#fafafa',
-          }}
           onError={(e) => { e.target.style.display = 'none' }}
         />
       </div>
       {images.length > 1 && (
-        <div style={{ display: 'flex', gap: '0.5rem', flexWrap: 'wrap' }}>
+        <div className="product-thumbnails">
           {images.map((img, i) => (
             <img
               key={i}
               src={imgSrc(img)}
               alt={`${title} ${i + 1}`}
               onClick={() => setSelectedIndex(i)}
-              style={{
-                width: '60px',
-                height: '60px',
-                objectFit: 'cover',
-                borderRadius: '4px',
-                border: i === selectedIndex ? '2px solid #e8463a' : '2px solid #eee',
-                cursor: 'pointer',
-                transition: 'border-color 0.2s',
-              }}
+              className={`product-thumbnail${i === selectedIndex ? ' is-active' : ''}`}
               onError={(e) => { e.target.style.display = 'none' }}
             />
           ))}

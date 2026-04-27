@@ -7,6 +7,9 @@ import { buildProductJson } from 'aliexpress-product-scraper/src/transform.js';
 
 puppeteer.use(StealthPlugin());
 
+const FAST_SCRAPE = process.env.FAST_SCRAPE !== 'false';
+const PRODUCT_DATA_WAIT_MS = Number(process.env.PRODUCT_DATA_WAIT_MS || 5000);
+
 const COUNTRY_OPTIONS = {
   CA: { name: 'Canada', currency: 'USD', locale: 'en_US' },
   US: { name: 'United States', currency: 'USD', locale: 'en_US' },
@@ -74,7 +77,7 @@ async function setAliExpressShipToCountry(page, shipToCountry) {
   });
 }
 
-function normalizeShippingData(rawShippingData, shipToCountry) {
+function normalizeShippingData(rawShippingData, shipToCountry, { includeUnmatched = false } = {}) {
   const countryCode = String(shipToCountry || '').toUpperCase();
   const config = getCountryConfig(countryCode);
 
@@ -84,7 +87,10 @@ function normalizeShippingData(rawShippingData, shipToCountry) {
     .filter((option) => {
       const toCode = String(option.shippingInfo?.toCode || '').toUpperCase();
       const toName = normalizeCountry(option.shippingInfo?.to);
-      return toCode === countryCode || toName === normalizeCountry(config?.name);
+      const hasDestination = Boolean(toCode || toName);
+      return toCode === countryCode
+        || toName === normalizeCountry(config?.name)
+        || (includeUnmatched && !hasDestination);
     })
     .map((option) => ({
       provider: option.deliveryProviderName || option.provider || option.company || 'Shipping option',
@@ -110,6 +116,29 @@ function normalizeShippingData(rawShippingData, shipToCountry) {
     }));
 }
 
+function hasUsableShippingData(shipping) {
+  return Array.isArray(shipping) && shipping.some((option) => (
+    option.fee != null
+    || option.shippingInfo?.fees != null
+    || option.deliveryMin != null
+    || option.deliveryMax != null
+    || option.deliveryInfo?.min != null
+    || option.deliveryInfo?.max != null
+  ));
+}
+
+async function speedUpPage(page) {
+  await page.setRequestInterception(true);
+  page.on('request', (request) => {
+    const blockedTypes = new Set(['image', 'media', 'font', 'stylesheet']);
+    if (blockedTypes.has(request.resourceType())) {
+      request.abort();
+      return;
+    }
+    request.continue();
+  });
+}
+
 async function scrapeProductWithDestination(productId, shipToCountry) {
   const countryCode = String(shipToCountry || '').toUpperCase();
   const config = getCountryConfig(countryCode);
@@ -121,8 +150,17 @@ async function scrapeProductWithDestination(productId, shipToCountry) {
   let browser;
 
   try {
-    browser = await puppeteer.launch({ headless: true });
+    browser = await puppeteer.launch({
+      headless: true,
+      args: ['--disable-blink-features=AutomationControlled'],
+    });
     const page = await browser.newPage();
+    await page.setViewport({ width: 1365, height: 900 });
+    await page.setUserAgent(
+      'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 '
+      + '(KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
+    );
+    await speedUpPage(page);
     await setAliExpressShipToCountry(page, countryCode);
 
     let apiData = null;
@@ -142,13 +180,13 @@ async function scrapeProductWithDestination(productId, shipToCountry) {
     });
 
     await page.goto(`https://www.aliexpress.com/item/${productId}.html?shipToCountry=${countryCode}`, {
-      waitUntil: 'networkidle2',
-      timeout: 60000,
+      waitUntil: 'domcontentloaded',
+      timeout: 20000,
     });
 
     let data = null;
     const startTime = Date.now();
-    while (!data && Date.now() - startTime < 15000) {
+    while (!data && Date.now() - startTime < PRODUCT_DATA_WAIT_MS) {
       if (apiData) {
         data = extractDataFromApiResponse(apiData);
       }
@@ -166,7 +204,7 @@ async function scrapeProductWithDestination(productId, shipToCountry) {
       throw new Error('Unable to fetch shipping data for selected destination.');
     }
 
-    const descriptionUrl = data?.productDescComponent?.descriptionUrl;
+    const descriptionUrl = FAST_SCRAPE ? null : data?.productDescComponent?.descriptionUrl;
     const descriptionDataPromise = descriptionUrl
       ? page.goto(descriptionUrl).then(async () => {
           const descriptionPageHtml = await page.content();
@@ -175,12 +213,14 @@ async function scrapeProductWithDestination(productId, shipToCountry) {
         })
       : Promise.resolve(null);
 
-    const reviewsPromise = getReviews({
-      productId,
-      limit: 20,
-      total: data.feedbackComponent?.totalValidNum || 0,
-      filterReviewsBy: 'all',
-    });
+    const reviewsPromise = FAST_SCRAPE
+      ? Promise.resolve([])
+      : getReviews({
+          productId,
+          limit: 20,
+          total: data.feedbackComponent?.totalValidNum || 0,
+          filterReviewsBy: 'all',
+        });
 
     const [descriptionData, reviews] = await Promise.all([
       descriptionDataPromise,
@@ -188,11 +228,14 @@ async function scrapeProductWithDestination(productId, shipToCountry) {
     ]);
 
     const productData = buildProductJson({ data, descriptionData, reviews });
-    const matchedShipping = normalizeShippingData(productData.shipping, countryCode);
+    let matchedShipping = normalizeShippingData(productData.shipping, countryCode);
+    if (!hasUsableShippingData(matchedShipping)) {
+      matchedShipping = normalizeShippingData(productData.shipping, countryCode, { includeUnmatched: true });
+    }
     const returnedCountries = [...new Set((productData.shipping || []).map((item) => item.shippingInfo?.to).filter(Boolean))];
-    const warning = matchedShipping.length === 0 && returnedCountries.length > 0
-      ? 'AliExpress returned default shipping data instead of selected country.'
-      : null;
+    const warning = hasUsableShippingData(matchedShipping)
+      ? null
+      : 'AliExpress did not return shipping fee or delivery-day data for the selected destination.';
 
     return {
       ...productData,

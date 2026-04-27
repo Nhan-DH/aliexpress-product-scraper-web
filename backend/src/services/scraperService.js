@@ -1,5 +1,11 @@
 import scrapeAliexpressProduct from 'aliexpress-product-scraper';
-import { scrapeProductWithDestination } from './shippingDestination.service.js';
+import {
+  COUNTRY_OPTIONS,
+  normalizeShippingData,
+  scrapeProductWithDestination,
+} from './shippingDestination.service.js';
+
+const SLOW_FALLBACK_SCRAPE = process.env.SLOW_FALLBACK_SCRAPE === 'true';
 
 function extractProductId(url) {
   if (!url || typeof url !== 'string') return null;
@@ -138,9 +144,42 @@ async function getProductData(url, shipToCountry = null) {
     throw new Error('Could not extract product ID from URL. Please use a direct AliExpress product URL.');
   }
 
-  const raw = shipToCountry
-    ? await scrapeProductWithDestination(productId, shipToCountry)
-    : await scrapeAliexpressProduct(productId);
+  let raw;
+
+  if (shipToCountry) {
+    try {
+      raw = await scrapeProductWithDestination(productId, shipToCountry);
+    } catch (error) {
+      console.warn(`Destination shipping scrape failed for ${productId}/${shipToCountry}:`, error.message);
+
+      if (!SLOW_FALLBACK_SCRAPE) {
+        throw new Error(
+          'Fast scrape timed out before AliExpress returned product data. '
+          + 'Try again, or set SLOW_FALLBACK_SCRAPE=true to allow the slower fallback scraper.',
+        );
+      }
+
+      raw = await scrapeAliexpressProduct(productId, {
+        reviewsCount: 0,
+        timeout: 20000,
+      });
+
+      const countryCode = String(shipToCountry).toUpperCase();
+      const selectedCountry = COUNTRY_OPTIONS[countryCode];
+      raw = {
+        ...raw,
+        selectedCountry: countryCode,
+        selectedCountryName: selectedCountry?.name || countryCode,
+        shippingWarning: 'Unable to fetch destination-specific shipping. Showing any shipping fee or delivery-day data AliExpress returned.',
+        shipping: normalizeShippingData(raw.shipping, countryCode, { includeUnmatched: true }),
+      };
+    }
+  } else {
+    raw = await scrapeAliexpressProduct(productId, {
+      reviewsCount: 0,
+      timeout: 20000,
+    });
+  }
 
   if (!raw) {
     throw new Error('Product not found or could not be retrieved.');
